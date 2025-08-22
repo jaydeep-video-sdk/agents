@@ -17,3 +17,6 @@ eggs/
 sdist/
 wheels/
 *.onnx
+
+# Ignore ONNX models
+*.onnx
