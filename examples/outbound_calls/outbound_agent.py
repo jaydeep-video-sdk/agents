@@ -113,24 +113,25 @@ class VideoSDKCallTrigger:
         """Trigger an outbound SIP call using VideoSDK API"""
         try:
             url = f"{self.base_url}/v2/sip/call"
-            
+
             payload = {
                 "gatewayId": gateway_id,
                 "sipCallTo": phone_number,
                 "destinationRoomId": room_id,
+                "participant": {"name": "Outbound Agent"}
             }
-            
+
             print(f"📞 Triggering call to {phone_number}")
             print(f"🏠 Room ID: {room_id}")
-            
+
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
-            
+
             call_data = response.json()
             print(f"🎉 Call triggered successfully!")
-            print(f"📞 Call ID: {call_data.get('callId', 'N/A')}")
+            print(f"📞 Call ID: {call_data.get('id', 'N/A')}")
             return call_data
-            
+
         except requests.exceptions.RequestException as e:
             print(f"❌ Failed to trigger call: {str(e)}")
             if hasattr(e.response, 'text'):
