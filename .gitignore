@@ -20,3 +20,27 @@ wheels/
 
 # Ignore ONNX models
 *.onnx
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info
+dist/
+build/
+
+# Virtual environment
+venv/
+.env/
+
+# Secrets
+*.json
+*.pem
+*.key
+
+# IDE/editor stuff
+.vscode/
+.idea/
+.DS_Store
