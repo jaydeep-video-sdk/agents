@@ -47,3 +47,4 @@ venv
 *.onnx
 *.onnx
 *.onnx
+examples/okaDocDemo/api/*.json
