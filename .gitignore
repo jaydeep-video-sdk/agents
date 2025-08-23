@@ -34,7 +34,7 @@ build/
 # Virtual environment
 venv/
 .env/
-
+venv
 # Secrets
 *.json
 *.pem
@@ -44,3 +44,5 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+*.onnx
+*.onnx
