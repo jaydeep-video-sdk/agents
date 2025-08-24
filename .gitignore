@@ -48,3 +48,5 @@ venv
 *.onnx
 *.onnx
 examples/okaDocDemo/api/*.json
+*.onnx
+examples/okaDocDemo/api/arctic-dynamo-469411-g9-3b97d92e4cc2.jsonexamples/okaDocDemo/api/*.json
