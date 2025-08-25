@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(
@@ -13,6 +14,10 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file
+env_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
+load_dotenv(dotenv_path=env_path)
 
 # Add parent directories to path
 sys.path.append(str(Path(__file__).parent.parent.parent))
