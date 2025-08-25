@@ -107,6 +107,10 @@ class HealthcareVoiceAgent(Agent):
     
     async def on_exit(self): 
         await self.session.say(self.config.farewell)
+    async def on_call(self):
+        await self.session.say("Thank you for calling me. I'm here to help you with your appointment.")
+    async def on_call_end(self):
+        await self.session.say("Thank you for your call. Have a great day!")
 
 async def start_session_configured(context: JobContext):
     global _GLOBAL_CONFIG
@@ -176,7 +180,7 @@ async def _make_sip_call(room_id: str):
     """Make SIP call directly to the room"""
     print(f"🔄 _make_sip_call function called with room_id: {room_id}")
     try:
-        gateway_id = "9908f984-fd53-433d-b192-3895e6a2d3e0"
+        gateway_id = "abe274e7-bb07-4fae-90f7-85d7f707434f"
         target_number = "+919664920749"
         
         print(f"📞 Initiating SIP call to {target_number} using gateway {gateway_id} for room {room_id}")
