@@ -14,13 +14,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Add parent directories to path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+# Add project root to Python path
+project_root = Path(__file__).resolve().parent.parent.parent.parent  # Go up to verificationDemo
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-from videosdk.agents import Agent, AgentSession, RealTimePipeline, JobContext, RoomOptions, WorkerJob
+# Add parent directory to path for absolute imports
+if str(project_root.parent) not in sys.path:
+    sys.path.insert(0, str(project_root.parent))
+
+from videosdk.agents import (
+    Agent,
+    AgentSession,
+    RealTimePipeline,
+    JobContext,
+    RoomOptions,
+    WorkerJob
+)
 from videosdk.plugins.google import GeminiRealtime, GeminiLiveConfig
-from api.room_api import VideoSDKRoomClient
-from api.sip_api import VideoSDKSIPClient
+from examples.verificationDemo.api.room_api import VideoSDKRoomClient
+from examples.verificationDemo.api.sip_api import VideoSDKSIPClient
 
 
 @dataclass

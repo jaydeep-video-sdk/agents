@@ -2,36 +2,67 @@ import asyncio
 import logging
 import os
 import sys
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional,AsyncIterator
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.INFO,  # Set to INFO to reduce verbosity
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler()]
 )
+
+# Set log level for all loggers
+logging.getLogger().setLevel(logging.INFO)
+
+# Get logger for this module
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Set higher log levels for verbose modules
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('videosdk').setLevel(logging.INFO)
+logging.getLogger('aioice').setLevel(logging.WARNING)
+logging.getLogger('websockets').setLevel(logging.WARNING)
 
 # Load environment variables from .env file
 env_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
 load_dotenv(dotenv_path=env_path)
 
-# Add parent directories to path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+# Add project root to Python path
+project_root = Path(__file__).resolve().parent.parent.parent.parent  # Go up to verificationDemo
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-from videosdk.agents import Agent, AgentSession, RealTimePipeline, JobContext, RoomOptions, WorkerJob
-from videosdk.agents import CascadingPipeline
-from videosdk.plugins.google import GoogleSTT
-from videosdk.plugins.google import GoogleLLM
-from videosdk.plugins.google import GoogleTTS
+# Add parent directory to path for absolute imports
+if str(project_root.parent) not in sys.path:
+    sys.path.insert(0, str(project_root.parent))
+
+from videosdk.agents import (
+    Agent,
+    AgentSession,
+    RealTimePipeline,
+    JobContext,
+    WorkerJob,
+    RoomOptions,
+    CascadingPipeline,
+    ConversationFlow,
+    ChatRole,
+)
+from videosdk.plugins.google import (
+    GoogleSTT,
+    GoogleLLM,
+    GoogleTTS,
+    GeminiRealtime,
+    GeminiLiveConfig
+)
 from videosdk.plugins.silero import SileroVAD
 from videosdk.plugins.turn_detector import TurnDetector
-from videosdk.plugins.google import GeminiRealtime, GeminiLiveConfig
-from api.room_api import VideoSDKRoomClient
-from api.sip_api import VideoSDKSIPClient
+from examples.verificationDemo.api.room_api import VideoSDKRoomClient
+from examples.verificationDemo.api.sip_api import VideoSDKSIPClient
 
 
 @dataclass
@@ -53,14 +84,97 @@ class SimpleConfig:
     room_name: str = "ABC Bank Verification"
     
     def __post_init__(self):
-        # Get environment variables
         if not self.target_number:
             self.target_number = os.getenv("TARGET_PHONE_NUMBER")
 
 
-class SimpleAgent(Agent):
-    """Minimal voice agent implementation"""
+class BankingVerificationFlow(ConversationFlow):
+    """Simple banking verification conversation flow"""
     
+    def __init__(self, agent, stt=None, llm=None, tts=None, vad=None, turn_detector=None):
+        super().__init__(agent, stt, llm, tts, vad, turn_detector)
+        self.verification_step = 0
+        self.customer_responses = {}
+        
+    async def run(self, transcript: str) -> AsyncIterator[str]:
+        """Handle each customer response naturally"""
+        await self.on_turn_start(transcript)
+        
+        # Clean up transcript
+        user_input = transcript.strip()
+        
+        # Add natural Hindi acknowledgments
+        acknowledgment = self._get_hindi_acknowledgment(user_input)
+        
+        # Build the prompt with natural context
+        enhanced_prompt = self._build_enhanced_prompt(user_input, acknowledgment)
+        
+        # Add to chat context  
+        self.agent.chat_context.add_message(role=ChatRole.USER, content=enhanced_prompt)
+        
+        # Process with LLM
+        async for response_chunk in self.process_with_llm():
+            yield response_chunk
+            
+        await self.on_turn_end()
+
+    def _get_hindi_acknowledgment(self, user_input: str) -> str:
+        """Get natural Hindi responses based on customer input"""
+        user_lower = user_input.lower()
+        
+        if any(word in user_lower for word in ['haan', 'ji', 'yes', 'theek', 'sahi']):
+            return random.choice(["Bahut accha!", "Perfect!", "Bilkul sahi!", "Theek hai..."])
+        
+        elif any(word in user_lower for word in ['nahi', 'no', 'galat']):
+            return random.choice(["Accha samajh gaya...", "Koi baat nahi...", "Theek hai phir..."])
+        
+        elif any(word in user_lower for word in ['kya', 'samajh', 'confused']):
+            return random.choice(["Main explain karti hun...", "Dekho, slowly batati hun...", "Aap tension mat lo..."])
+        
+        elif len(user_input) > 20:  # Detailed response
+            return random.choice(["Accha accha...", "Haan samajh gayi...", "Note kar liya..."])
+        
+        return ""
+
+    def _build_enhanced_prompt(self, user_input: str, acknowledgment: str) -> str:
+        """Build enhanced prompt with natural flow"""
+        
+        # Add context based on verification step
+        context_hints = {
+            0: "Customer just joined the call, need to verify their identity politely",
+            1: "Getting basic information like name and address", 
+            2: "Verifying documents like PAN card and Aadhar",
+            3: "Checking employment and income details",
+            4: "Wrapping up verification process"
+        }
+        
+        step_context = context_hints.get(self.verification_step % 5, "Continue verification naturally")
+        
+        enhanced_input = f"""
+{acknowledgment}
+
+Customer said: "{user_input}"
+
+Context: {step_context}
+Respond naturally in Hindi with English mix like Priya from ABC Bank would.
+Keep it conversational and human-like.
+"""
+        
+        return enhanced_input
+
+    async def on_turn_start(self, transcript: str) -> None:
+        """Called at start of each turn"""
+        self.is_turn_active = True
+        print(f"📝 Customer: {transcript}")
+
+    async def on_turn_end(self) -> None:
+        """Called at end of each turn"""
+        self.is_turn_active = False
+        self.verification_step += 1
+        print(f"✅ Step {self.verification_step} completed")
+
+
+class SimpleAgent(Agent):
     def __init__(self, config: SimpleConfig):
         self.config = config
         self.room_id = None
@@ -75,53 +189,66 @@ class SimpleAgent(Agent):
             await self.session.say(self.config.greeting)
     
     async def on_participant_joined(self, participant_id: str):
-        # Fix for VideoSDK logging issue - use proper string formatting
         logger.info("👤 Participant joined: %s", participant_id)
         self.call_active = True
     
     async def on_participant_left(self, participant_id: str):
-        # Fix for VideoSDK logging issue - use proper string formatting
         logger.info("👋 Participant left: %s", participant_id)
         self.call_active = False
         
         if self.config.farewell:
             await self.session.say(self.config.farewell)
         
-        # End session after farewell
         await asyncio.sleep(2)
         await self.session.leave()
     
     async def on_exit(self):
-        """Handle agent exit - required abstract method implementation"""
         logger.info("✅ Agent exiting")
         self.call_active = False
 
 
 class SimpleRunner:
-    """Simplified runner using WorkerJob pattern"""
-    
     def __init__(self, config: SimpleConfig):
         self.config = config
         self.room_id = None
     
+    def get_videosdk_client(self):
+        token = os.getenv("VIDEOSDK_AUTH_TOKEN")
+        base_url = os.getenv("VIDEOSDK_BASE_URL", "https://api.videosdk.live/v2")
+        
+        logger.debug(f"🔧 VideoSDK Config - Token: {'*****' + token[-4:] if token else 'Not set'}")
+        logger.debug(f"🔧 VideoSDK Config - Base URL: {base_url}")
+        
+        if not token:
+            logger.error("❌ VIDEOSDK_AUTH_TOKEN environment variable is not set")
+            raise ValueError("VIDEOSDK_AUTH_TOKEN environment variable is not set")
+        
+        return VideoSDKRoomClient(token=token, base_url=base_url)
+        
     def create_room(self) -> str:
-        """Create room synchronously"""
         logger.info("🏠 Creating room...")
         
-        with VideoSDKRoomClient() as client:
+        try:
+            client = self.get_videosdk_client()
             response = client.create_room()
             if not response.success:
                 raise Exception(f"Room creation failed: {response.error}")
             
             room_id = response.data.get('roomId')
             if not room_id:
+                logger.error("❌ No room ID returned in response")
+                logger.debug(f"Response data: {response.__dict__}")
                 raise Exception("No room ID returned")
             
             logger.info("✅ Room created: %s", room_id)
+            logger.debug(f"Room creation response: {response.__dict__}")
             return room_id
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create room: {str(e)}", exc_info=True)
+            raise
     
     def make_sip_call(self, room_id: str, target_number: str) -> bool:
-        """Make SIP call synchronously"""
         try:
             gateway_id = os.getenv("SIP_GATEWAY_ID")
             if not gateway_id:
@@ -132,8 +259,10 @@ class SimpleRunner:
             
             sip_client = VideoSDKSIPClient()
             response = sip_client.trigger_call(
-                gateway_id=gateway_id,
-                sip_call_to=target_number,
+                gateway_id='b471f21c-a292-4976-bb27-2b660ef80d91',
+                # gateway_id,
+                sip_call_to="+919664920749",
+                # target_number=target_number,
                 destination_room_id=room_id,
                 participant_name="Customer"
             )
@@ -154,57 +283,72 @@ class SimpleRunner:
         """Main session entrypoint"""
         session = None
         try:
+            logger.debug(f"🔌 Session context: {context.__dict__}")
+            logger.debug(f"🔌 Room options: {context.room_options.__dict__ if context.room_options else 'None'}")
+            
             # Get room ID from context
             self.room_id = context.room_options.room_id
             
-            # Create model with proper async context
-            model = GeminiRealtime(
-                model=self.config.model,
-                api_key=os.getenv("GOOGLE_API_KEY"),
-                config=GeminiLiveConfig(
-                    voice=self.config.voice,
-                    response_modalities=["AUDIO"]
+            # Set the signaling URL explicitly
+            os.environ['VIDEOSDK_SIGNALING_URL'] = 'api.videosdk.live'
+            
+            try:
+                
+                logger.info("✅ Model initialized successfully")
+                
+                stt = GoogleSTT(
+                    api_key="/Users/jaydeepwagh/Documents/live/agents/examples/okaDocDemo/agent/api/arctic-dynamo-469411-g9-3b97d92e4cc2.json", 
+                    model="latest_long",
+                    interim_results=True,
+                    punctuate=True
                 )
-            )
+                logger.info("✅ STT initialized successfully")
+                
+                llm = GoogleLLM(
+                    model="gemini-2.0-flash-001",
+                    api_key=os.getenv("GOOGLE_API_KEY")
+                )
+                logger.info("✅ LLM initialized successfully")
+                
+                # tts = GoogleTTS(
+                #     api_key=os.getenv("GOOGLE_API_KEY"),
+                # )
+                logger.info("✅ TTS initialized successfully")
+                
+                turn_detector = TurnDetector(threshold=0.7)
+                logger.info("✅ Turn detector initialized successfully")
+                
+                pipeline = CascadingPipeline(
+                    stt=stt,
+                    llm=llm,
+                    # tts=tts,
+                    turn_detector=turn_detector
+                )
+                logger.info("✅ Pipeline created successfully")
+                
+                
+                agent = SimpleAgent(self.config)
+                agent.room_id = self.room_id
+                
+                conversation_flow = BankingVerificationFlow(
+                    agent=agent,
+                    stt=stt, 
+                    llm=llm,
+                    # tts=tts
+                )
 
-            stt=GoogleSTT(
-                api_key="/Users/jaydeepwagh/Documents/live/agents/examples/okaDocDemo/agent/api/arctic-dynamo-469411-g9-3b97d92e4cc2.json",
-                languages="hi-IN",
-                model="latest_long",
-                interim_results=True,
-                punctuate=True
-            )
-
-            llm=GoogleLLM(model="gemini-2.0-flash-001",api_key=os.getenv("GOOGLE_API_KEY"))
-            
-            tts=GoogleTTS(api_key=os.getenv("GOOGLE_API_KEY"))
-            
-            vad=SileroVAD(
-                input_sample_rate=48000,
-                model_sample_rate=16000,
-                threshold=0.3,
-                min_speech_duration=0.1,
-                min_silence_duration=0.75,
-                prefix_padding_duration=0.3
-            )
-
-            turn_detector=TurnDetector(
-                threshold=0.7
-            )
-            
-            pipeline = CascadingPipeline(stt=stt, llm=llm, tts=tts, vad=vad, turn_detector=turn_detector)
-
-            agent = SimpleAgent(self.config)
-            agent.room_id = self.room_id
-            
-            session = AgentSession(agent=agent, pipeline=pipeline)
-            
-            
-            await context.connect()
-            logger.info("✅ Connected to room")
-            
-            await session.start()
-            logger.info("✅ Session started")
+                session = AgentSession(agent=agent, pipeline=pipeline, conversation_flow=conversation_flow)    
+                logger.info("✅ Agent session created")
+                
+                await context.connect()
+                logger.info("✅ Connected to room")
+                
+                await session.start()
+                logger.info("✅ Session started")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize pipeline components: {str(e)}")
+                raise
             
             if self.config.auto_dial and self.config.target_number:
                 await asyncio.sleep(2)
@@ -232,34 +376,53 @@ class SimpleRunner:
             except Exception as e:
                 logger.error("Error during cleanup: %s", e)
     
-    def job_context(self) -> JobContext:
-        """Create job context"""
-        room_id = self.create_room()
+    def job_context(self):
+        room_id = self.room_id or self.create_room()
+        
+        auth_token = os.getenv("VIDEOSDK_AUTH_TOKEN")
+        if not auth_token:
+            raise ValueError("VIDEOSDK_AUTH_TOKEN environment variable is not set")
+            
+        signaling_url = 'api.videosdk.live'
+        os.environ['VIDEOSDK_SIGNALING_URL'] = signaling_url
         
         room_options = RoomOptions(
             room_id=room_id,
             name=self.config.room_name,
-            playground=False
+            playground=False,
+            auth_token=auth_token,
+            signaling_base_url=signaling_url,
+            auto_end_session=True
         )
+        
+        logger.info(f"Created room options with room_id: {room_id}, signaling_url: {signaling_url}")
         
         return JobContext(room_options=room_options)
     
     def run(self):
-        """Run the agent using WorkerJob"""
         try:
-            logger.info("🚀 Starting voice agent...")
+            os.environ['VIDEOSDK_SIGNALING_URL'] = 'api.videosdk.live'
+            
+            logger.info("Starting agent with configuration:")
+            logger.info(f"- Room Name: {self.config.room_name}")
+            logger.info(f"- Model: {self.config.model}")
+            logger.info(f"- Voice: {self.config.voice}")
             
             job = WorkerJob(
                 entrypoint=self.session_entrypoint,
-                jobctx=self.job_context
+                jobctx=self.job_context()
             )
-            
             job.start()
             
-        except KeyboardInterrupt:
-            logger.info("🛑 Interrupted by user")
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                logger.info("Shutting down agent...")
+                job.stop()
+                
         except Exception as e:
-            logger.error("❌ Failed to start: %s", e)
+            logger.error(f"Fatal error running agent: {str(e)}", exc_info=True)
             raise
 
 
@@ -290,7 +453,6 @@ def create_simple_config(
 
 # Pre-configured setups
 def bank_verification_config() -> SimpleConfig:
-    """Pre-configured for bank verification"""
     return SimpleConfig(
         instructions='''
     # Natural Human Banking Verification Agent
