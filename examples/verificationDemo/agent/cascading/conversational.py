@@ -296,12 +296,12 @@ class SimpleRunner:
                 
                 logger.info("✅ Model initialized successfully")
                 
-                stt = GoogleSTT(
-                    api_key="/Users/jaydeepwagh/Documents/live/agents/examples/okaDocDemo/agent/api/arctic-dynamo-469411-g9-3b97d92e4cc2.json", 
-                    model="latest_long",
-                    interim_results=True,
-                    punctuate=True
-                )
+                # stt = GoogleSTT(
+                #     api_key="/Users/jaydeepwagh/Documents/live/agents/examples/okaDocDemo/agent/api/arctic-dynamo-469411-g9-3b97d92e4cc2.json", 
+                #     model="latest_long",
+                #     interim_results=True,
+                #     punctuate=True
+                # )
                 logger.info("✅ STT initialized successfully")
                 
                 llm = GoogleLLM(
@@ -310,18 +310,18 @@ class SimpleRunner:
                 )
                 logger.info("✅ LLM initialized successfully")
                 
-                # tts = GoogleTTS(
-                #     api_key=os.getenv("GOOGLE_API_KEY"),
-                # )
+                tts = GoogleTTS(
+                    api_key=os.getenv("GOOGLE_API_KEY"),
+                )
                 logger.info("✅ TTS initialized successfully")
                 
                 turn_detector = TurnDetector(threshold=0.7)
                 logger.info("✅ Turn detector initialized successfully")
                 
                 pipeline = CascadingPipeline(
-                    stt=stt,
+                    # stt=stt,
                     llm=llm,
-                    # tts=tts,
+                    tts=tts,
                     turn_detector=turn_detector
                 )
                 logger.info("✅ Pipeline created successfully")
@@ -332,9 +332,9 @@ class SimpleRunner:
                 
                 conversation_flow = BankingVerificationFlow(
                     agent=agent,
-                    stt=stt, 
+                    # stt=stt, 
                     llm=llm,
-                    # tts=tts
+                    tts=tts
                 )
 
                 session = AgentSession(agent=agent, pipeline=pipeline, conversation_flow=conversation_flow)    
