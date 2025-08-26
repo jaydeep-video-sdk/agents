@@ -34,6 +34,11 @@ from videosdk.agents import (
 from videosdk.plugins.google import GeminiRealtime, GeminiLiveConfig
 from examples.verificationDemo.api.room_api import VideoSDKRoomClient
 from examples.verificationDemo.api.sip_api import VideoSDKSIPClient
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+env_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
+load_dotenv(dotenv_path=env_path)
 
 
 @dataclass
@@ -106,11 +111,16 @@ class SimpleRunner:
         self.config = config
         self.room_id = None
     
+    def get_videosdk_client(self) -> VideoSDKRoomClient:
+        """Get a configured VideoSDK client"""
+        token = os.getenv("VIDEOSDK_AUTH_TOKEN")
+        return VideoSDKRoomClient(token=token)
+        
     def create_room(self) -> str:
         """Create room synchronously"""
         logger.info("🏠 Creating room...")
         
-        with VideoSDKRoomClient() as client:
+        with self.get_videosdk_client() as client:
             response = client.create_room()
             if not response.success:
                 raise Exception(f"Room creation failed: {response.error}")
@@ -216,13 +226,25 @@ class SimpleRunner:
     
     def job_context(self) -> JobContext:
         """Create job context"""
-        room_id = self.create_room()
+        room_id = self.room_id or self.create_room()
+        
+        auth_token = os.getenv("VIDEOSDK_AUTH_TOKEN")
+        if not auth_token:
+            raise ValueError("VIDEOSDK_AUTH_TOKEN environment variable is not set")
+            
+        signaling_url = 'api.videosdk.live'
+        os.environ['VIDEOSDK_SIGNALING_URL'] = signaling_url
         
         room_options = RoomOptions(
             room_id=room_id,
             name=self.config.room_name,
-            playground=False
+            playground=False,
+            auth_token=auth_token,
+            signaling_base_url=signaling_url,
+            auto_end_session=True
         )
+        
+        logger.info(f"Created room options with room_id: {room_id}, signaling_url: {signaling_url}")
         
         return JobContext(room_options=room_options)
     
