@@ -59,6 +59,7 @@ from videosdk.plugins.google import (
     GeminiRealtime,
     GeminiLiveConfig
 )
+from videosdk.plugins.sarvamai import SarvamAISTT
 from videosdk.plugins.silero import SileroVAD
 from videosdk.plugins.turn_detector import TurnDetector
 from examples.verificationDemo.api.room_api import VideoSDKRoomClient
@@ -97,7 +98,6 @@ class BankingVerificationFlow(ConversationFlow):
         self.customer_responses = {}
         
     async def run(self, transcript: str) -> AsyncIterator[str]:
-        """Handle each customer response naturally"""
         await self.on_turn_start(transcript)
         
         # Clean up transcript
@@ -296,12 +296,11 @@ class SimpleRunner:
                 
                 logger.info("✅ Model initialized successfully")
                 
-                # stt = GoogleSTT(
-                #     api_key="/Users/jaydeepwagh/Documents/live/agents/examples/okaDocDemo/agent/api/arctic-dynamo-469411-g9-3b97d92e4cc2.json", 
-                #     model="latest_long",
-                #     interim_results=True,
-                #     punctuate=True
-                # )
+                stt = SarvamAISTT(
+                    api_key=os.getenv("SARVAMAI_API_KEY"),
+                    model="saarika:v2",
+                    language="en-IN"
+                ) 
                 logger.info("✅ STT initialized successfully")
                 
                 llm = GoogleLLM(
@@ -319,7 +318,7 @@ class SimpleRunner:
                 logger.info("✅ Turn detector initialized successfully")
                 
                 pipeline = CascadingPipeline(
-                    # stt=stt,
+                    stt=stt,
                     llm=llm,
                     tts=tts,
                     turn_detector=turn_detector
@@ -332,7 +331,7 @@ class SimpleRunner:
                 
                 conversation_flow = BankingVerificationFlow(
                     agent=agent,
-                    # stt=stt, 
+                    stt=stt, 
                     llm=llm,
                     tts=tts
                 )
