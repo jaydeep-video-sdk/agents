@@ -115,11 +115,7 @@ class VideoSDKWebhookClient:
 
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-    client = VideoSDKWebhookApis(TOKEN)
-=======
     client = VideoSDKWebhookClient(TOKEN)
->>>>>>> e03b930 (- call webhook apis is added)
 
     created = client.create_webhook("https://example.com/webhook", ["call-started", "call-answered"])
     print(created)
