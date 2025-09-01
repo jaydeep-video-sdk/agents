@@ -62,8 +62,8 @@ def verify_account(account_id: str) -> str:
 
 class BankAgent(Agent):
     def __init__(self) -> None:
-        agent_id = str(uuid.uuid4())
-        super().__init__(instructions="You are Priya from ABC Bank...", tools=[verify_account], agent_id=agent_id)
+        self.id = "test@124"
+        super().__init__(instructions="You are Priya from ABC Bank...", tools=[verify_account], agent_id=self.id)
         self.room_id: Optional[str] = None
 
     async def on_enter(self) -> None:
@@ -155,6 +155,7 @@ async def main(ctx: JobContext) -> None:
         agent.room_id = ctx.room_options.room_id
         session = AgentSession(
             agent=agent,
+            
             pipeline=RealTimePipeline(
                 GeminiRealtime(
                     model="gemini-2.0-flash-live-001",
