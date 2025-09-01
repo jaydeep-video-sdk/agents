@@ -18,3 +18,4 @@ sdist/
 wheels/
 .env 
 
+/Users/jaydeepwagh/PycharmProjects/agents/.env
