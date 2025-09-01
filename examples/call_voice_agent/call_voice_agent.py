@@ -1,11 +1,13 @@
 import os
 import asyncio
+import uuid
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from videosdk.agents import Agent, AgentSession, RealTimePipeline, JobContext, RoomOptions, WorkerJob, ConversationFlow
 from videosdk.plugins.google import GeminiRealtime, GeminiLiveConfig
+from videosdk_apis.room_apis.room_apis import VideoSDKRoomApis
 
 VIDEOSDK_AUTH_TOKEN = os.getenv("VIDEOSDK_AUTH_TOKEN")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -54,9 +56,11 @@ async def start_session(context: JobContext):
         await context.shutdown()
 
 def make_context() -> JobContext:
+    room_client = VideoSDKRoomApis(VIDEOSDK_AUTH_TOKEN)
+    room_response = room_client.create_room()
     room_options = RoomOptions(
-        room_id="YOUR_MEETING_ID",
-        name="VideoSDK Cascaded Agent",
+        room_id=room_response.roomId,
+        name="VideoSDK Voice Agent",
         playground=True,
         auth_token=VIDEOSDK_AUTH_TOKEN
     )
