@@ -76,7 +76,7 @@ class EndSessionResponse:
     links: Links
 
 
-class VideoSDKClient:
+class VideoSessionApis:
     def __init__(self, token: str):
         self.base_url = "https://api.videosdk.live/v2"
         self.headers = {"Authorization": token, "Content-Type": "application/json"}
@@ -222,7 +222,7 @@ class VideoSDKClient:
 
 
 if __name__ == "__main__":
-    client = VideoSDKClient(TOKEN)
+    client = VideoSessionApis(TOKEN)
     try:
         print(client.fetch_sessions(roomId="sn1h-7yca-uypo", page=1, perPage=2))
         print(client.fetch_session("68b1a4979b728b68b08e9fba"))
