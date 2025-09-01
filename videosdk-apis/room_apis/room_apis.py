@@ -227,7 +227,7 @@ class DeactivateRoomResponse:
         )
 
 
-class VideoSDKClient:
+class VideoSDKRoomApis:
     def __init__(self, token: str) -> None:
         self.token: str = token
         self.base_url: str = "https://api.videosdk.live/v2"
@@ -304,7 +304,7 @@ class VideoSDKClient:
 
 
 if __name__ == "__main__":
-    client: VideoSDKClient = VideoSDKClient(TOKEN)
+    client: VideoSDKRoomApis = VideoSDKRoomApis(TOKEN)
     try:
         created: RoomResponse = client.create_room()
         print(created)

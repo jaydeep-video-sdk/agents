@@ -56,7 +56,7 @@ class OutboundCallResponse:
     message: str
     data: OutboundCallData
 
-class VideoSDKCallClient:
+class VideoSdkCallApis:
     def __init__(self, token: str):
         self.token = token
         self.base_url = "https://api.videosdk.live/v2"
@@ -158,7 +158,7 @@ class VideoSDKCallClient:
         return OutboundCallResponse(message=str(data.get("message", "")), data=call_data)
 
 if __name__ == "__main__":
-    client = VideoSDKCallClient(TOKEN)
+    client = VideoSdkCallApis(TOKEN)
     calls_resp = client.fetch_calls()
     print(calls_resp)
 

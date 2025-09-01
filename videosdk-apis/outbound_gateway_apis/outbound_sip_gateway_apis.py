@@ -41,7 +41,7 @@ class OutboundGatewaysResponse:
 class DeleteGatewayResponse:
     message: str
 
-class VideoSDKClient:
+class OutbondGateWayApis:
     def __init__(self, token: str):
         self.token = token
         self.base_url = "https://api.videosdk.live/v2"
@@ -158,7 +158,7 @@ class VideoSDKClient:
 
 
 if __name__ == "__main__":
-    client = VideoSDKClient(TOKEN)
+    client = OutbondGateWayApis(TOKEN)
 
     gw = client.create_outbound_gateway(
         name="Minimal Gateway",

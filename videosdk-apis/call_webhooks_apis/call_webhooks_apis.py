@@ -28,7 +28,7 @@ class WebhooksResponse:
 class DeleteWebhookResponse:
     message: str
 
-class VideoSDKWebhookClient:
+class VideoSDKWebhookApis:
     def __init__(self, token: str):
         self.base_url = "https://api.videosdk.live/v2"
         self.headers = {"Authorization": token, "Content-Type": "application/json"}
@@ -102,7 +102,7 @@ class VideoSDKWebhookClient:
 
 
 if __name__ == "__main__":
-    client = VideoSDKWebhookClient(TOKEN)
+    client = VideoSDKWebhookApis(TOKEN)
 
     created = client.create_webhook("https://example.com/webhook", ["call-started", "call-answered"])
     print(created)

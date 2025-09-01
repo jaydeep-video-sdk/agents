@@ -81,7 +81,7 @@ class InboundGatewayDetail:
 class DeleteGatewayResponse:
     message: str
 
-class VideoSDKClient:
+class VideoSDKInboundSIPGatewayApis:
     def __init__(self, token: str):
         self.token = token
         self.base_url = "https://api.videosdk.live/v2"
@@ -247,7 +247,7 @@ class VideoSDKClient:
 
 
 if __name__ == "__main__":
-    client = VideoSDKClient(TOKEN)
+    client = VideoSDKInboundSIPGatewayApis(TOKEN)
     response = client.create_inbound_gateway(
         name="Twilio Inbound Gateway",
         numbers=["+11234567890", "+19876543210"],

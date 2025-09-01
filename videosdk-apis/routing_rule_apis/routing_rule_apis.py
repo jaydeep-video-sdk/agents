@@ -46,7 +46,7 @@ class RoutingRulesResponse:
 class DeleteRuleResponse:
     message: str
 
-class VideoSDKRoutingClient:
+class VideoSDKRoutingApis:
     def __init__(self, token: str):
         self.token = token
         self.base_url = "https://api.videosdk.live/v2"
