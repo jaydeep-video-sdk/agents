@@ -3,8 +3,10 @@ import sys
 import asyncio
 import re
 import re
+import re
 from pathlib import Path
 from dotenv import load_dotenv
+from time import sleep
 from time import sleep
 from time import sleep
 
@@ -276,9 +278,6 @@ def make_context() -> JobContext:
         room_id="YOUR_MEETING_ID",
         name="VideoSDK Cascaded Agent",
         playground=True,
-        auth_token=VIDEOSDK_AUTH_TOKEN,
-        auto_end_session=False,
-        session_timeout_seconds=300
         auth_token=VIDEOSDK_AUTH_TOKEN,
         auto_end_session=False,
         session_timeout_seconds=300
