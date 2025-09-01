@@ -36,7 +36,6 @@ from call_webhooks_apis.call_webhooks_apis import VideoSDKWebhookApis
 from webhook_server import add_session, remove_session
 from videosdk.agents import Agent, AgentSession, RealTimePipeline, JobContext, RoomOptions, WorkerJob, ConversationFlow
 from videosdk.plugins.google import GeminiRealtime, GeminiLiveConfig
-from videosdk_apis.room_apis.room_apis import VideoSDKRoomApis
 
 VIDEOSDK_AUTH_TOKEN = os.getenv("VIDEOSDK_AUTH_TOKEN")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
