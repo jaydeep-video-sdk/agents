@@ -2,12 +2,16 @@ import requests
 from dataclasses import dataclass
 from typing import List, Optional, Dict
 
+<<<<<<< HEAD
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 VIDEOSDK_AUTH_TOKEN = os.getenv("VIDEOSDK_AUTH_TOKEN")
 TOKEN: str = VIDEOSDK_AUTH_TOKEN
+=======
+TOKEN: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlrZXkiOiI0ZjU1MWI1Yy1mYmEyLTQ0OWQtYjU5NC02MjNhYzgyMGIwZWYiLCJwZXJtaXNzaW9ucyI6WyJhbGxvd19qb2luIl0sImlhdCI6MTc1NjY0NTQzMywiZXhwIjoxNzU3MjUwMjMzfQ.C8vlHUQPdFNo5hbx617xm3aBUDyJQYjFnJdcnuD25u8"
+>>>>>>> e03b930 (- call webhook apis is added)
 
 @dataclass(frozen=True)
 class Webhook:
@@ -33,7 +37,11 @@ class WebhooksResponse:
 class DeleteWebhookResponse:
     message: str
 
+<<<<<<< HEAD
 class VideoSDKWebhookApis:
+=======
+class VideoSDKWebhookClient:
+>>>>>>> e03b930 (- call webhook apis is added)
     def __init__(self, token: str):
         self.base_url = "https://api.videosdk.live/v2"
         self.headers = {"Authorization": token, "Content-Type": "application/json"}
@@ -107,7 +115,11 @@ class VideoSDKWebhookApis:
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     client = VideoSDKWebhookApis(TOKEN)
+=======
+    client = VideoSDKWebhookClient(TOKEN)
+>>>>>>> e03b930 (- call webhook apis is added)
 
     created = client.create_webhook("https://example.com/webhook", ["call-started", "call-answered"])
     print(created)
