@@ -36,6 +36,7 @@ from call_webhooks_apis.call_webhooks_apis import VideoSDKWebhookApis
 from webhook_server import add_session, remove_session
 from videosdk.agents import Agent, AgentSession, RealTimePipeline, JobContext, RoomOptions, WorkerJob, ConversationFlow
 from videosdk.plugins.google import GeminiRealtime, GeminiLiveConfig
+from videosdk_apis.room_apis.room_apis import VideoSDKRoomApis
 
 VIDEOSDK_AUTH_TOKEN = os.getenv("VIDEOSDK_AUTH_TOKEN")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -128,8 +129,13 @@ async def start_session(context: JobContext) -> None:
         except Exception: pass
 
 def make_context() -> JobContext:
-    room_id = VideoSDKRoomApis(VIDEOSDK_AUTH_TOKEN).create_room().roomId
-    return JobContext(room_options=RoomOptions(room_id=room_id, name="VideoSDK Voice Agent", playground=True, auth_token=VIDEOSDK_AUTH_TOKEN, auto_end_session=False, session_timeout_seconds=300))
+    room_options = RoomOptions(
+        room_id="YOUR_MEETING_ID",
+        name="VideoSDK Cascaded Agent",
+        playground=True,
+        auth_token=VIDEOSDK_AUTH_TOKEN
+    )
+    return JobContext(room_options=room_options)
 
 if __name__ == "__main__":
     print("Starting VideoSDK Voice Agent...")
