@@ -72,8 +72,7 @@ def _extract_status_code_from_exception(exc: Exception):
 def _retry_call(fn, *args, retries: int = 3, backoff: float = 1.0, **kwargs):
     last_exc = None
     for attempt in range(1, retries + 1):
-        try:
-            return fn(*args, **kwargs)
+        try: return fn(*args, **kwargs)
         except Exception as e:
             last_exc = e
             code = _extract_status_code_from_exception(e)
@@ -86,6 +85,7 @@ def _retry_call(fn, *args, retries: int = 3, backoff: float = 1.0, **kwargs):
 def make_outbound_call(room_id: str) -> tuple:
     call_client = VideoSdkCallApis(VIDEOSDK_AUTH_TOKEN)
     webhook_client = VideoSDKWebhookApis(VIDEOSDK_AUTH_TOKEN)
+
     webhook_id = None
     try:
         webhook = _retry_call(webhook_client.create_webhook, WEBHOOK_BASE_URL, ["call-started","call-answered","call-ended"])
@@ -94,16 +94,76 @@ def make_outbound_call(room_id: str) -> tuple:
         print(f"create_webhook failed: {e}")
     try:
         kwargs = dict(gatewayId=GATEWAY_ID, sipCallTo=CONTACT_NUMBER, destinationRoomId=room_id, waitUntilAnswered=True, ringingTimeout=30)
+        if webhook_id: kwargs["webhookId"] = webhook_id
+        return _retry_call(call_client.make_outbound_call, **kwargs), webhook_id
+    except Exception as e:
+        print(f"make_outbound_call failed: {e}")
+        if webhook_id:
+            try: webhook_client.delete_webhook(webhook_id)
+            except Exception: pass
+        return None, webhook_id
+
+async def make_outbound_call_async(room_id: str):
+    return await asyncio.get_event_loop().run_in_executor(None, make_outbound_call, room_id)
+
+async def _spawn_call_and_attach(room_id: str, session):
+    call_resp, webhook_id = await make_outbound_call_async(room_id)
+    add_session(room_id, session, webhook_id)
+    if call_resp:
+        call_id = getattr(getattr(call_resp, "data", None), "callId", None) or getattr(call_resp, "callId", None)
+        status = getattr(getattr(call_resp, "data", None), "status", None) or str(call_resp)
+        print(f"Call initiated. callId={call_id}, status={status}, webhook_id={webhook_id}")
+    else:
+        print(f"Call failed. webhook_id={webhook_id}")
+
+_status_code_re = re.compile(r"API request failed \[(\d{3})\]")
+
+def _extract_status_code_from_exception(exc: Exception):
+    m = _status_code_re.search(str(exc))
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except Exception:
+        return None
+
+def _retry_call(fn, *args, retries: int = 3, backoff: float = 1.0, **kwargs):
+    last_exc = None
+    for attempt in range(1, retries + 1):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            last_exc = e
+            code = _extract_status_code_from_exception(e)
+            if code is not None and 500 <= code < 600:
+                if attempt == retries:
+                    break
+                sleep(backoff * attempt)
+                continue
+            raise
+    raise last_exc
+
+def make_outbound_call(room_id: str) -> tuple:
+    call_client = VideoSdkCallApis(VIDEOSDK_AUTH_TOKEN)
+    webhook_client = VideoSDKWebhookApis(VIDEOSDK_AUTH_TOKEN)
+    webhook_id = None
+    try:
+        webhook = _retry_call(webhook_client.create_webhook, WEBHOOK_BASE_URL, ["call-started", "call-answered", "call-ended"], retries=3, backoff=1.0)
+        webhook_id = getattr(webhook, "id", None)
+    except Exception as e:
+        print(f"create_webhook failed after retries: {e}")
+        webhook_id = None
+
+    try:
+        kwargs = dict(gatewayId=GATEWAY_ID, sipCallTo=CONTACT_NUMBER, destinationRoomId=room_id, waitUntilAnswered=True, ringingTimeout=30)
         if webhook_id:
             kwargs["webhookId"] = webhook_id
         return _retry_call(call_client.make_outbound_call, **kwargs), webhook_id
     except Exception as e:
         print(f"make_outbound_call failed: {e}")
         if webhook_id:
-            try:
-                webhook_client.delete_webhook(webhook_id)
-            except Exception:
-                pass
+            try: webhook_client.delete_webhook(webhook_id)
+            except Exception: pass
         return None, webhook_id
 
 async def make_outbound_call_async(room_id: str):
