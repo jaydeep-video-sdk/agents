@@ -62,12 +62,7 @@ _status_code_re = re.compile(r"API request failed \[(\d{3})\]")
 
 def _extract_status_code_from_exception(exc: Exception):
     m = _status_code_re.search(str(exc))
-    if not m:
-        return None
-    try:
-        return int(m.group(1))
-    except Exception:
-        return None
+    return int(m.group(1)) if m else None
 
 def _retry_call(fn, *args, retries: int = 3, backoff: float = 1.0, **kwargs):
     last_exc = None
@@ -83,9 +78,7 @@ def _retry_call(fn, *args, retries: int = 3, backoff: float = 1.0, **kwargs):
     raise last_exc
 
 def make_outbound_call(room_id: str) -> tuple:
-    call_client = VideoSdkCallApis(VIDEOSDK_AUTH_TOKEN)
-    webhook_client = VideoSDKWebhookApis(VIDEOSDK_AUTH_TOKEN)
-
+    call_client, webhook_client = VideoSdkCallApis(VIDEOSDK_AUTH_TOKEN), VideoSDKWebhookApis(VIDEOSDK_AUTH_TOKEN)
     webhook_id = None
     try:
         webhook = _retry_call(webhook_client.create_webhook, WEBHOOK_BASE_URL, ["call-started","call-answered","call-ended"])
@@ -116,111 +109,30 @@ async def _spawn_call_and_attach(room_id: str, session):
     else:
         print(f"Call failed. webhook_id={webhook_id}")
 
-_status_code_re = re.compile(r"API request failed \[(\d{3})\]")
-
-def _extract_status_code_from_exception(exc: Exception):
-    m = _status_code_re.search(str(exc))
-    if not m:
-        return None
-    try:
-        return int(m.group(1))
-    except Exception:
-        return None
-
-def _retry_call(fn, *args, retries: int = 3, backoff: float = 1.0, **kwargs):
-    last_exc = None
-    for attempt in range(1, retries + 1):
-        try:
-            return fn(*args, **kwargs)
-        except Exception as e:
-            last_exc = e
-            code = _extract_status_code_from_exception(e)
-            if code is not None and 500 <= code < 600:
-                if attempt == retries:
-                    break
-                sleep(backoff * attempt)
-                continue
-            raise
-    raise last_exc
-
-def make_outbound_call(room_id: str) -> tuple:
-    call_client = VideoSdkCallApis(VIDEOSDK_AUTH_TOKEN)
-    webhook_client = VideoSDKWebhookApis(VIDEOSDK_AUTH_TOKEN)
-    webhook_id = None
-    try:
-        webhook = _retry_call(webhook_client.create_webhook, WEBHOOK_BASE_URL, ["call-started", "call-answered", "call-ended"], retries=3, backoff=1.0)
-        webhook_id = getattr(webhook, "id", None)
-    except Exception as e:
-        print(f"create_webhook failed after retries: {e}")
-        webhook_id = None
-
-    try:
-        kwargs = dict(gatewayId=GATEWAY_ID, sipCallTo=CONTACT_NUMBER, destinationRoomId=room_id, waitUntilAnswered=True, ringingTimeout=30)
-        if webhook_id:
-            kwargs["webhookId"] = webhook_id
-        return _retry_call(call_client.make_outbound_call, **kwargs), webhook_id
-    except Exception as e:
-        print(f"make_outbound_call failed: {e}")
-        if webhook_id:
-            try: webhook_client.delete_webhook(webhook_id)
-            except Exception: pass
-        return None, webhook_id
-
-async def make_outbound_call_async(room_id: str):
-    return await asyncio.get_event_loop().run_in_executor(None, make_outbound_call, room_id)
-
-async def _spawn_call_and_attach(room_id: str, session):
-    call_resp, webhook_id = await make_outbound_call_async(room_id)
-    add_session(room_id, session, webhook_id)
-    if call_resp:
-        call_id = getattr(getattr(call_resp, "data", None), "callId", None) or getattr(call_resp, "callId", None)
-        status = getattr(getattr(call_resp, "data", None), "status", None) or str(call_resp)
-        print(f"Call initiated. callId={call_id}, status={status}, webhook_id={webhook_id}")
-    else:
-        print(f"Call failed. webhook_id={webhook_id}")
-
 async def start_session(context: JobContext) -> None:
     agent = MyVoiceAgent()
     model = GeminiRealtime(model="gemini-2.0-flash-live-001", api_key=GOOGLE_API_KEY, config=GeminiLiveConfig(voice="Leda", response_modalities=["AUDIO"]))
     session = AgentSession(agent=agent, pipeline=RealTimePipeline(model=model), conversation_flow=ConversationFlow(agent))
     try:
-        await context.connect()
-        await session.start()
+        await context.connect(); await session.start()
         room_id = context.room_options.room_id
         asyncio.create_task(_spawn_call_and_attach(room_id, session))
         add_session(room_id, session, None)
         await asyncio.Event().wait()
     except Exception as e:
-        print(f"Error in start_session: {e}")
-        raise
+        print(f"Error in start_session: {e}"); raise
     finally:
-        try:
-            await session.close()
-            await context.shutdown()
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
-        try:
-            remove_session(getattr(context.room_options, "room_id", None))
-        except Exception:
-            pass
+        try: await session.close(); await context.shutdown()
+        except Exception as e: print(f"Error during cleanup: {e}")
+        try: remove_session(getattr(context.room_options, "room_id", None))
+        except Exception: pass
 
 def make_context() -> JobContext:
-    room_options = RoomOptions(
-        room_id="YOUR_MEETING_ID",
-        name="VideoSDK Cascaded Agent",
-        playground=True,
-        auth_token=VIDEOSDK_AUTH_TOKEN,
-        auto_end_session=False,
-        session_timeout_seconds=300
-    )
-    return JobContext(room_options=room_options)
+    room_id = VideoSDKRoomApis(VIDEOSDK_AUTH_TOKEN).create_room().roomId
+    return JobContext(room_options=RoomOptions(room_id=room_id, name="VideoSDK Voice Agent", playground=True, auth_token=VIDEOSDK_AUTH_TOKEN, auto_end_session=False, session_timeout_seconds=300))
 
 if __name__ == "__main__":
     print("Starting VideoSDK Voice Agent...")
-    try:
-        WorkerJob(entrypoint=start_session, jobctx=make_context()).start()
-    except KeyboardInterrupt:
-        print("\nShutting down gracefully...")
-    except Exception as e:
-        print(f"Error starting job: {e}")
-        raise
+    try: WorkerJob(entrypoint=start_session, jobctx=make_context()).start()
+    except KeyboardInterrupt: print("\nShutting down gracefully...")
+    except Exception as e: print(f"Error starting job: {e}"); raise
